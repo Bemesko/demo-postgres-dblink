@@ -1,0 +1,6 @@
+postgresql_version: "12"
+pg_user: "psqladmin"
+pg_password: "{{ admin_password }}" # Use the Terraform output for the admin password
+pg_host: "{{ postgres_private_ip }}" # Use the Terraform output for the PostgreSQL private IP
+pg_port: 5432
+pg_dbname: "exampledb" # Replace with your PostgreSQL database name

@@ -1,45 +1,26 @@
-resource "azurerm_resource_group" "example" {
-  name     = "example-resources"
-  location = "East US"
+resource "azurerm_resource_group" "postgres" {
+  name     = var.resource_group_name
+  location = var.location
 }
 
-resource "azurerm_virtual_network" "example" {
-  name                = "example-vnet"
-  address_space       = ["10.0.0.0/16"]
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+resource "azurerm_virtual_network" "postgres" {
+  name                = "postgres-vnet"
+  address_space       = ["10.0.10.0/24"]
+  location            = azurerm_resource_group.postgres.location
+  resource_group_name = azurerm_resource_group.postgres.name
 }
 
-resource "azurerm_subnet" "example" {
-  name                 = "example-subnet"
-  resource_group_name  = azurerm_resource_group.example.name
-  virtual_network_name = azurerm_virtual_network.example.name
-  address_prefixes     = ["10.0.1.0/24"]
+resource "azurerm_subnet" "postgres" {
+  name                 = "postgres-subnet"
+  resource_group_name  = azurerm_resource_group.postgres.name
+  virtual_network_name = azurerm_virtual_network.postgres.name
+  address_prefixes     = ["10.0.10.0/26"]
 }
 
-resource "azurerm_postgresql_flexible_server" "example" {
-  name                   = "example-postgres"
-  resource_group_name    = azurerm_resource_group.example.name
-  location               = azurerm_resource_group.example.location
-  version                = "12"
-  administrator_login    = "psqladmin"
-  administrator_password = "P@ssw0rd1234!"
-
-  storage {
-    storage_size_gb = 32
-  }
-
-  sku_name = "GP_Standard_D4s_v3"
-
-  delegated_subnet_id = azurerm_subnet.example.id
-
-  public_network_access_enabled = false # Use private access
-}
-
-resource "azurerm_network_security_group" "example" {
-  name                = "example-nsg"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+resource "azurerm_network_security_group" "postgres" {
+  name                = "postgres-nsg"
+  location            = azurerm_resource_group.postgres.location
+  resource_group_name = azurerm_resource_group.postgres.name
 }
 
 resource "azurerm_network_security_rule" "allow_postgres" {
@@ -50,30 +31,45 @@ resource "azurerm_network_security_rule" "allow_postgres" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = "5432"
-  source_address_prefix       = azurerm_postgresql_flexible_server.example.private_ip_address
-  destination_address_prefix  = "10.0.1.4" # Adjust for your VM's private IP address
-  resource_group_name         = azurerm_resource_group.example.name
-  network_security_group_name = azurerm_network_security_group.example.name
+  source_address_prefix       = azurerm_postgresql_flexible_server.postgres.private_ip_address
+  destination_address_prefix  = "10.0.10.4" # Adjust for your VM's private IP address
+  resource_group_name         = azurerm_resource_group.postgres.name
+  network_security_group_name = azurerm_network_security_group.postgres.name
 }
 
-resource "azurerm_network_interface" "example" {
-  name                = "example-nic"
-  location            = azurerm_resource_group.example.location
-  resource_group_name = azurerm_resource_group.example.name
+resource "azurerm_postgresql_flexible_server" "postgres" {
+  name                   = "postgres-server"
+  resource_group_name    = azurerm_resource_group.postgres.name
+  location               = azurerm_resource_group.postgres.location
+  version                = "12"
+  administrator_login    = "psqladmin"
+  administrator_password = "P@ssw0rd1234!"
+
+  storage_mb = 32768             # 32 GB storage
+  sku_name   = "B_Standard_B1ms" # Basic tier with minimum configuration
+
+  delegated_subnet_id           = azurerm_subnet.postgres.id
+  public_network_access_enabled = false # Use private access
+}
+
+resource "azurerm_network_interface" "postgres" {
+  name                = "postgres-nic"
+  location            = azurerm_resource_group.postgres.location
+  resource_group_name = azurerm_resource_group.postgres.name
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = azurerm_subnet.example.id
+    subnet_id                     = azurerm_subnet.postgres.id
     private_ip_address_allocation = "Dynamic"
   }
 }
 
-resource "azurerm_virtual_machine" "example" {
-  name                  = "example-vm"
-  location              = azurerm_resource_group.example.location
-  resource_group_name   = azurerm_resource_group.example.name
-  network_interface_ids = [azurerm_network_interface.example.id]
-  vm_size               = "Standard_DS1_v2"
+resource "azurerm_virtual_machine" "postgres" {
+  name                  = "postgres-vm"
+  location              = azurerm_resource_group.postgres.location
+  resource_group_name   = azurerm_resource_group.postgres.name
+  network_interface_ids = [azurerm_network_interface.postgres.id]
+  vm_size               = "Standard_B1ms" # Basic tier, cost-effective VM size
 
   storage_image_reference {
     publisher = "Canonical"
@@ -83,7 +79,7 @@ resource "azurerm_virtual_machine" "example" {
   }
 
   storage_os_disk {
-    name              = "example-osdisk"
+    name              = "postgres-osdisk"
     caching           = "ReadWrite"
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
@@ -102,4 +98,25 @@ resource "azurerm_virtual_machine" "example" {
   tags = {
     environment = "testing"
   }
+}
+
+# Outputs
+output "vm_public_ip" {
+  description = "Public IP address of the VM"
+  value       = azurerm_network_interface.postgres.private_ip_address
+}
+
+output "postgres_private_ip" {
+  description = "Private IP address of the PostgreSQL server"
+  value       = azurerm_postgresql_flexible_server.postgres.private_ip_address
+}
+
+output "admin_username" {
+  description = "Admin username for the VM"
+  value       = azurerm_virtual_machine.postgres.os_profile[0].admin_username
+}
+
+output "admin_password" {
+  description = "Admin password for the VM"
+  value       = azurerm_virtual_machine.postgres.os_profile[0].admin_password
 }

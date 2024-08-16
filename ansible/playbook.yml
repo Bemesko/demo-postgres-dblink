@@ -1,0 +1,34 @@
+- name: Configure PostgreSQL VM and DBLink
+  hosts: postgres_vm
+  become: true
+  vars_files:
+    - group_vars/all.yml
+
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install PostgreSQL client
+      apt:
+        name: postgresql-client-{{ postgresql_version }}
+        state: present
+
+    - name: Create a pgpass file for automated login
+      copy:
+        dest: /home/{{ ansible_user }}/.pgpass
+        content: "{{ pg_host }}:{{ pg_port }}:*:{{ pg_user }}:{{ pg_password }}"
+        mode: "0600"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Create a DBLink in the PostgreSQL database
+      shell: |
+        psql -U {{ pg_user }} -h {{ pg_host }} -p {{ pg_port }} -d {{ pg_dbname }} -c \
+        "CREATE EXTENSION IF NOT EXISTS dblink;
+        SELECT dblink_connect('dblink_connection', 'dbname={{ pg_dbname }} host={{ pg_host }} user={{ pg_user }} password={{ pg_password }}');"
+      environment:
+        PGPASSWORD: "{{ pg_password }}"
+      args:
+        executable: /bin/bash
