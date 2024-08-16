@@ -31,8 +31,8 @@ resource "azurerm_network_security_rule" "allow_postgres" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = "5432"
-  source_address_prefix       = azurerm_postgresql_flexible_server.postgres.private_ip_address
-  destination_address_prefix  = "10.0.10.4" # Adjust for your VM's private IP address
+  source_address_prefix       = "*" # Allow connections from any IP
+  destination_address_prefix  = azurerm_network_interface.postgres.private_ip_address
   resource_group_name         = azurerm_resource_group.postgres.name
   network_security_group_name = azurerm_network_security_group.postgres.name
 }
@@ -87,8 +87,8 @@ resource "azurerm_virtual_machine" "postgres" {
 
   os_profile {
     computer_name  = "hostname"
-    admin_username = "adminuser"
-    admin_password = "P@ssw0rd1234!"
+    admin_username = var.postgres_admin_username
+    admin_password = var.postgress_admin_password
   }
 
   os_profile_linux_config {
@@ -101,22 +101,22 @@ resource "azurerm_virtual_machine" "postgres" {
 }
 
 # Outputs
-output "vm_public_ip" {
-  description = "Public IP address of the VM"
+output "vm_private_ip" {
+  description = "Private IP address of the VM"
   value       = azurerm_network_interface.postgres.private_ip_address
 }
 
 output "postgres_private_ip" {
   description = "Private IP address of the PostgreSQL server"
-  value       = azurerm_postgresql_flexible_server.postgres.private_ip_address
+  value       = azurerm_postgresql_flexible_server.postgres.private_dns_zone_id
 }
 
 output "admin_username" {
   description = "Admin username for the VM"
-  value       = azurerm_virtual_machine.postgres.os_profile[0].admin_username
+  value       = var.postgres_admin_username
 }
 
 output "admin_password" {
   description = "Admin password for the VM"
-  value       = azurerm_virtual_machine.postgres.os_profile[0].admin_password
+  value       = var.postgress_admin_password
 }

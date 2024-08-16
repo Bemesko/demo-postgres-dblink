@@ -11,3 +11,9 @@ variable "resource_group_name" {
 variable "location" {
   default = "West US 3"
 }
+
+variable "postgres_admin_username" {
+}
+
+variable "postgress_admin_password" {
+}
