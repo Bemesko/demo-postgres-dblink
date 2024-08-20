@@ -1,34 +1,107 @@
-- name: Configure PostgreSQL VM and DBLink
-  hosts: postgres_vm
-  become: true
-  vars_files:
-    - group_vars/all.yml
+- name: Configure PostgreSQL VM and Sample Table
+  hosts: postgres_vm
+  become: true
+  vars_files:
+    - group_vars/all.yml
 
-  tasks:
-    - name: Update and upgrade apt packages
-      apt:
-        update_cache: yes
-        upgrade: dist
+  handlers:
+  - name: Restart postgresql
+    ansible.builtin.systemd:
+      name: postgresql
+      state: restarted
+
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install PostgreSQL server
+      apt:
+        name: postgresql
+        state: present
+
+    - name: Install required packages for psycopg2
+      apt:
+        name:
+          - libpq-dev
+          - build-essential
+          - python3-pip  # Ensure pip is installed
+        state: present
+
+    - name: Ensure PostgreSQL is started and enabled
+      systemd:
+        name: postgresql
+        state: started
+        enabled: true
 
-    - name: Install PostgreSQL client
-      apt:
-        name: postgresql-client-{{ postgresql_version }}
+    - name: Install psycopg2 using pip
+      pip:
+        name: psycopg2
+        state: present
+
+    - name: Allow all hosts
+      postgresql_pg_hba:
+        dest: /etc/postgresql/10/main/pg_hba.conf
+        databases: all
+        users: all
+        address: 0.0.0.0/0
+        method: trust
         state: present
+      become: true
+      become_user: postgres
+      notify:
+        - Restart postgresql
 
-    - name: Create a pgpass file for automated login
-      copy:
-        dest: /home/{{ ansible_user }}/.pgpass
-        content: "{{ pg_host }}:{{ pg_port }}:*:{{ pg_user }}:{{ pg_password }}"
-        mode: "0600"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
+    - name: 'Accept connections from all hosts'
+      postgresql_set:
+        name: listen_addresses
+        value: "*"
+      become: true
+      become_user: postgres
+      notify:
+        - Restart postgresql
 
-    - name: Create a DBLink in the PostgreSQL database
-      shell: |
-        psql -U {{ pg_user }} -h {{ pg_host }} -p {{ pg_port }} -d {{ pg_dbname }} -c \
-        "CREATE EXTENSION IF NOT EXISTS dblink;
-        SELECT dblink_connect('dblink_connection', 'dbname={{ pg_dbname }} host={{ pg_host }} user={{ pg_user }} password={{ pg_password }}');"
-      environment:
-        PGPASSWORD: "{{ pg_password }}"
-      args:
-        executable: /bin/bash
+    - name: 'Disable collect loggings'
+      postgresql_set:
+        name: logging_collector
+        value: "off"
+      become: true
+      become_user: postgres
+      notify:
+        - Restart postgresql
+
+    - name: Create a new PostgreSQL database
+      postgresql_db:
+        name: "exampledb2"
+        state: present
+        login_user: "postgres"
+        login_password: "banana"
+        login_host: "localhost"
+        login_port: "{{ pg_port }}"
+
+
+    - name: Create a sample table in PostgreSQL
+      postgresql_table:
+        name: sample_table
+        db: "exampledb2"
+        login_host: "localhost"
+        login_user: "postgres"
+        login_password: "banana"
+        state: present
+        columns:
+          - id bigserial primary key
+          - name text
+
+    - name: Populate the sample table in PostgreSQL
+      postgresql_query:
+        db: "exampledb2"
+        query: |
+          INSERT INTO sample_table (name) VALUES
+            ('Sample Data 1'),
+            ('Sample Data 2')
+        login_user: "postgres"
+        login_password: "banana"
+        login_host: "localhost"
+        login_port: "{{ pg_port }}"
+      state: present

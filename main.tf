@@ -38,18 +38,17 @@ resource "azurerm_network_security_rule" "allow_postgres" {
 }
 
 resource "azurerm_postgresql_flexible_server" "postgres" {
-  name                   = "postgres-server"
+  name                   = "postgres-berb-001"
   resource_group_name    = azurerm_resource_group.postgres.name
   location               = azurerm_resource_group.postgres.location
   version                = "12"
-  administrator_login    = "psqladmin"
-  administrator_password = "P@ssw0rd1234!"
+  administrator_login    = var.postgres_admin_username
+  administrator_password = var.postgress_admin_password
 
-  storage_mb = 32768            # 32 GB storage
-  sku_name   = "B_Standard_B2s" # Basic tier with minimum configuration
+  storage_mb = 32768           # 32 GB storage
+  sku_name   = "Standard_B1ms" # Basic tier with minimum configuration
 
-  delegated_subnet_id           = azurerm_subnet.postgres.id
-  public_network_access_enabled = false # Use private access
+  public_network_access_enabled = true
 }
 
 resource "azurerm_network_interface" "postgres" {
@@ -93,10 +92,6 @@ resource "azurerm_virtual_machine" "postgres" {
 
   os_profile_linux_config {
     disable_password_authentication = false
-  }
-
-  tags = {
-    environment = "testing"
   }
 }
 

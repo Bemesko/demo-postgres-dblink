@@ -2,5 +2,5 @@ all:
   hosts:
     postgres_vm:
       ansible_host: "{{ vm_public_ip }}" # Use the Terraform output for the VM's public IP
-      ansible_user: "{{ admin_username }}" # Use the Terraform output for the admin username
-      ansible_ssh_private_key_file: ~/.ssh/id_rsa # Path to your SSH private key
+      ansible_user: "{{ admin_username }}" # Use the Terraform output for the admin user
+      ansible_ssh_pass: "{{ admin_password }}" # Use the Terraform output for the admin password
