@@ -45,8 +45,8 @@ resource "azurerm_postgresql_flexible_server" "postgres" {
   administrator_login    = "psqladmin"
   administrator_password = "P@ssw0rd1234!"
 
-  storage_mb = 32768             # 32 GB storage
-  sku_name   = "B_Standard_B1ms" # Basic tier with minimum configuration
+  storage_mb = 32768            # 32 GB storage
+  sku_name   = "B_Standard_B2s" # Basic tier with minimum configuration
 
   delegated_subnet_id           = azurerm_subnet.postgres.id
   public_network_access_enabled = false # Use private access
@@ -69,7 +69,7 @@ resource "azurerm_virtual_machine" "postgres" {
   location              = azurerm_resource_group.postgres.location
   resource_group_name   = azurerm_resource_group.postgres.name
   network_interface_ids = [azurerm_network_interface.postgres.id]
-  vm_size               = "Standard_B1ms" # Basic tier, cost-effective VM size
+  vm_size               = "Standard_B2s" # Basic tier, cost-effective VM size
 
   storage_image_reference {
     publisher = "Canonical"
@@ -119,4 +119,5 @@ output "admin_username" {
 output "admin_password" {
   description = "Admin password for the VM"
   value       = var.postgress_admin_password
+  sensitive   = true
 }

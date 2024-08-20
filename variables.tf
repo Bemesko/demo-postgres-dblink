@@ -13,7 +13,10 @@ variable "location" {
 }
 
 variable "postgres_admin_username" {
+  description = "Username to connect to PostgreSQL"
 }
 
 variable "postgress_admin_password" {
+  description = "Password to connect to PostgreSQL"
+  sensitive   = true
 }
